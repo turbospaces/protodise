@@ -15,7 +15,7 @@ public class ObjectMessageType implements MessageType {
         this.ref = ref;
     }
     @Override
-    public void init(ProtoGenerationContext ctx) throws Exception {
+    public void init(ProtoGenerationContext ctx) {
         for ( FieldType t : FieldType.values() ) {
             if ( t.name().equals( ref.toUpperCase() ) ) {
                 this.type = t;

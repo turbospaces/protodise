@@ -1,5 +1,7 @@
 package com.turbospaces.protodise.serialization;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -10,10 +12,13 @@ import java.util.Set;
 import org.msgpack.MessagePack;
 import org.msgpack.packer.Packer;
 import org.msgpack.unpacker.Unpacker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.turbospaces.protodise.CachingClassResolver;
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
 import com.turbospaces.protodise.gen.GeneratedEnum;
 import com.turbospaces.protodise.gen.GeneratedMessage;
@@ -23,12 +28,30 @@ import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
-public abstract class MessagePackStreams {
-    private static final MessagePack msgpack = new MessagePack();
+public class MessagePackStreams {
+    private final Logger logger = LoggerFactory.getLogger( getClass() );
+    private final MessagePack msgpack;
+    private final CachingClassResolver classResolver;
+
+    public MessagePackStreams(MessagePack msgpack, CachingClassResolver classResolver) {
+        this.msgpack = checkNotNull( msgpack );
+        this.classResolver = checkNotNull( classResolver );
+    }
+    public MessagePackStreams(MessagePack msgpack) {
+        this.msgpack = checkNotNull( msgpack );
+
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if ( classLoader == null ) {
+            classLoader = this.getClass().getClassLoader();
+        }
+        this.classResolver = new CachingClassResolver( classLoader );
+    }
+    public MessagePackStreams() {
+        this( new MessagePack() );
+    }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static void
-            deserialize(final GeneratedMessage target, final byte[] arr) throws IOException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+    public void deserialize(final GeneratedMessage target, final byte[] arr) throws IOException {
         ByteArrayInputStream stream = new ByteArrayInputStream( arr );
         Unpacker unpacker = msgpack.createUnpacker( stream );
 
@@ -74,7 +97,7 @@ public abstract class MessagePackStreams {
         }
     }
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static byte[] serialize(final GeneratedMessage msg) throws IOException {
+    public byte[] serialize(final GeneratedMessage msg) throws IOException {
         Collection<FieldDescriptor> desc = msg.getAllDescriptors();
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         Packer packer = msgpack.createPacker( stream );
@@ -125,8 +148,7 @@ public abstract class MessagePackStreams {
         }
     }
     @SuppressWarnings("rawtypes")
-    private static Object
-            readValue(final FieldType ftype, final String typeRef, final Unpacker unpacker) throws IOException, ClassNotFoundException, InstantiationException, IllegalAccessException {
+    private Object readValue(final FieldType ftype, final String typeRef, final Unpacker unpacker) throws IOException {
         Object value = null;
         switch ( ftype ) {
             case BYTE:
@@ -157,24 +179,44 @@ public abstract class MessagePackStreams {
                 value = unpacker.readByteArray();
                 break;
             case ENUM:
-                int orderNum = unpacker.readInt();
-                Class<?> enumClass = Class.forName( typeRef );
-                GeneratedEnum e = (GeneratedEnum) enumClass.getEnumConstants()[0];
-                value = e.valueOf( orderNum );
+                try {
+                    int orderNum = unpacker.readInt();
+                    Class<?> enumClass = classResolver.resolve( typeRef );
+                    GeneratedEnum e = (GeneratedEnum) enumClass.getEnumConstants()[0];
+                    value = e.valueOf( orderNum );
+                }
+                catch ( ClassNotFoundException ex ) {
+                    logger.error( ex.getMessage(), ex );
+                    throw new IOException( ex );
+                }
                 break;
             case MESSAGE:
-                Class<?> valueClass = Class.forName( typeRef );
-                GeneratedMessage m = (GeneratedMessage) valueClass.newInstance();
-                byte[] bytes = unpacker.readByteArray();
-                deserialize( m, bytes );
-                value = m;
+                try {
+                    GeneratedMessage m;
+                    m = (GeneratedMessage) classResolver.resolve( typeRef ).newInstance();
+                    byte[] bytes = unpacker.readByteArray();
+                    deserialize( m, bytes );
+                    value = m;
+                }
+                catch ( InstantiationException ex ) {
+                    logger.error( ex.getMessage(), ex );
+                    throw new IOException( ex );
+                }
+                catch ( IllegalAccessException ex ) {
+                    logger.error( ex.getMessage(), ex );
+                    throw new IOException( ex );
+                }
+                catch ( ClassNotFoundException ex ) {
+                    logger.error( ex.getMessage(), ex );
+                    throw new IOException( ex );
+                }
                 break;
             default:
                 throw new Error();
         }
         return value;
     }
-    private static void writeValue(final FieldType ftype, final Object value, final Packer packer) throws IOException {
+    private void writeValue(final FieldType ftype, final Object value, final Packer packer) throws IOException {
         switch ( ftype ) {
             case BYTE:
                 packer.write( (Byte) value );
@@ -215,6 +257,4 @@ public abstract class MessagePackStreams {
                 throw new Error();
         }
     }
-
-    private MessagePackStreams() {}
 }

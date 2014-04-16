@@ -3,8 +3,8 @@ package com.turbospaces.protodise.types;
 import com.turbospaces.protodise.gen.ProtoGenerationContext;
 
 public class CollectionMessageType implements MessageType {
-    private ObjectMessageType objectMessageType;
-    private boolean isSet;
+    private final ObjectMessageType objectMessageType;
+    private final boolean isSet;
 
     public CollectionMessageType(String ref, boolean setOtherwiseList) {
         this.objectMessageType = new ObjectMessageType( ref );
@@ -15,7 +15,7 @@ public class CollectionMessageType implements MessageType {
         this.isSet = setOtherwiseList;
     }
     @Override
-    public void init(ProtoGenerationContext ctx) throws Exception {
+    public void init(ProtoGenerationContext ctx) {
         objectMessageType.init( ctx );
     }
     @Override

@@ -2,7 +2,6 @@ package com.turbospaces.protodise.gen;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -35,8 +34,8 @@ import com.turbospaces.protodise.MessageDescriptor;
 import com.turbospaces.protodise.ProtoContainer;
 import com.turbospaces.protodise.ProtoParserLexer;
 import com.turbospaces.protodise.ProtoParserParser;
-import com.turbospaces.protodise.ServiceDescriptor;
 import com.turbospaces.protodise.ProtoParserParser.ProtoContext;
+import com.turbospaces.protodise.ServiceDescriptor;
 
 import freemarker.cache.ClassTemplateLoader;
 import freemarker.ext.beans.BeansWrapper;
@@ -45,11 +44,11 @@ import freemarker.template.Template;
 
 public class Generator {
     private static Logger logger = LoggerFactory.getLogger( Generator.class );
-    private File outDir;
-    private String[] paths;
+    private final File outDir;
+    private final String[] paths;
     private Template enumTemplate, classTemplate, protoTemplate, serviceTemplate;
-    private GenLanguage lang;
-    private String version = "0.1-SNAPSHOT";
+    private final GenLanguage lang;
+    private final String version = "0.1-SNAPSHOT";
 
     public Generator(String lang, File outDir, String... paths) {
         this.lang = GenLanguage.valueOf( lang.toUpperCase() );
@@ -211,7 +210,7 @@ public class Generator {
         visitor.visit( protoContext );
         return container;
     }
-    public static File loadResource(String path) throws FileNotFoundException {
+    public static File loadResource(String path) {
         File f = new File( path );
         if ( f.exists() ) {
             return f;

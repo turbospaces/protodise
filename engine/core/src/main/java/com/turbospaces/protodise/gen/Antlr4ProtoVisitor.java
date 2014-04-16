@@ -12,12 +12,31 @@ import com.google.common.collect.Sets;
 import com.turbospaces.protodise.ConstantDescriptor;
 import com.turbospaces.protodise.EnumDescriptor;
 import com.turbospaces.protodise.MessageDescriptor;
+import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
 import com.turbospaces.protodise.ProtoContainer;
 import com.turbospaces.protodise.ProtoParserBaseVisitor;
 import com.turbospaces.protodise.ProtoParserParser;
+import com.turbospaces.protodise.ProtoParserParser.Alias_defContext;
+import com.turbospaces.protodise.ProtoParserParser.CollectionContext;
+import com.turbospaces.protodise.ProtoParserParser.Collection_mapContext;
+import com.turbospaces.protodise.ProtoParserParser.Collection_map_valueContext;
+import com.turbospaces.protodise.ProtoParserParser.Collection_typeContext;
+import com.turbospaces.protodise.ProtoParserParser.Constant_defContext;
+import com.turbospaces.protodise.ProtoParserParser.Enum_defContext;
+import com.turbospaces.protodise.ProtoParserParser.Enum_member_tagContext;
+import com.turbospaces.protodise.ProtoParserParser.Import_defContext;
+import com.turbospaces.protodise.ProtoParserParser.MapContext;
+import com.turbospaces.protodise.ProtoParserParser.Map_keyContext;
+import com.turbospaces.protodise.ProtoParserParser.Map_valueContext;
+import com.turbospaces.protodise.ProtoParserParser.Message_defContext;
+import com.turbospaces.protodise.ProtoParserParser.Message_field_defContext;
+import com.turbospaces.protodise.ProtoParserParser.Message_field_typeContext;
+import com.turbospaces.protodise.ProtoParserParser.Package_defContext;
+import com.turbospaces.protodise.ProtoParserParser.ProtoContext;
+import com.turbospaces.protodise.ProtoParserParser.Service_defContext;
+import com.turbospaces.protodise.ProtoParserParser.Service_method_defContext;
+import com.turbospaces.protodise.ProtoParserParser.Service_method_excpContext;
 import com.turbospaces.protodise.ServiceDescriptor;
-import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
-import com.turbospaces.protodise.ProtoParserParser.*;
 import com.turbospaces.protodise.ServiceDescriptor.MethodDescriptor;
 import com.turbospaces.protodise.types.CollectionMessageType;
 import com.turbospaces.protodise.types.MapMessageType;
@@ -177,7 +196,7 @@ public class Antlr4ProtoVisitor extends ProtoParserBaseVisitor<Void> {
      * 
      * Nested type nesting inside maps/sets/lists is not supported atm.
      */
-    private MessageType parseGenericType(Collection_map_valueContext cmp) {
+    private static MessageType parseGenericType(Collection_map_valueContext cmp) {
         if ( cmp.TYPE_LITERAL() != null ) {
             return new ObjectMessageType( cmp.TYPE_LITERAL().getText() );
         }

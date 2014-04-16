@@ -27,6 +27,12 @@
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
+            <exclusions>
+                <exclusion>
+                    <artifactId>org.abego.treelayout.core</artifactId>
+                    <groupId>org.abego.treelayout</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.freemarker</groupId>

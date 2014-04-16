@@ -9,22 +9,23 @@ import com.turbospaces.demo.User;
 import com.turbospaces.protodise.AbstractStreamsTest;
 
 public class MessagePackSerializerTest extends AbstractStreamsTest {
+    MessagePackStreams stream = new MessagePackStreams();
 
     @Test
     @Override
     public void address() throws Exception {
-        byte[] bytes = MessagePackStreams.serialize( a1 );
+        byte[] bytes = stream.serialize( a1 );
         Address prototype = new Address();
-        MessagePackStreams.deserialize( prototype, bytes );
+        stream.deserialize( prototype, bytes );
         assertEquals( a1, prototype );
     }
 
     @Test
     @Override
     public void user() throws Exception {
-        byte[] bytes = MessagePackStreams.serialize( u );
+        byte[] bytes = stream.serialize( u );
         User prototype = new User();
-        MessagePackStreams.deserialize( prototype, bytes );
+        stream.deserialize( prototype, bytes );
         assertEquals( u, prototype );
     }
 }

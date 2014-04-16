@@ -30,7 +30,7 @@ public class MapMessageType implements MessageType, InitializingBean {
         return vtype;
     }
     @Override
-    public void init(ProtoGenerationContext ctx) throws Exception {
+    public void init(ProtoGenerationContext ctx) {
         for ( FieldType t : FieldType.values() ) {
             if ( t.name().equals( kref.toUpperCase() ) ) {
                 this.ktype = t;

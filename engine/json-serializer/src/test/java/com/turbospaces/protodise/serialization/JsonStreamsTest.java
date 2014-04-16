@@ -8,13 +8,15 @@ import com.turbospaces.demo.Address;
 import com.turbospaces.protodise.AbstractStreamsTest;
 
 public class JsonStreamsTest extends AbstractStreamsTest {
+    JsonStreams stream = new JsonStreams();
+
     @Test
     @Override
     public void address() throws Exception {
-        String str = JsonStreams.serialize( a1 );
+        String str = stream.serialize( a1 );
         System.out.println( str );
         Address prototype = new Address();
-        JsonStreams.deserialize( prototype, str );
+        stream.deserialize( prototype, str );
         assertEquals( a1, prototype );
     }
 

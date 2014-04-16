@@ -7,14 +7,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.google.common.base.Throwables;
+import com.google.common.base.Enums;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.turbospaces.protodise.CachingClassResolver;
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
 import com.turbospaces.protodise.gen.GeneratedEnum;
 import com.turbospaces.protodise.gen.GeneratedMessage;
@@ -24,17 +28,31 @@ import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
-public abstract class JsonStreams {
-    private static final JsonFactory factory = new JsonFactory();
-    private static final ConcurrentMap<Class<?>, Map<String, FieldDescriptor>> FIELD_NAMES = Maps.newConcurrentMap();
+public class JsonStreams {
+    private final Logger logger = LoggerFactory.getLogger( getClass() );
+    private final ConcurrentMap<Class<?>, Map<String, FieldDescriptor>> FIELD_NAMES = Maps.newConcurrentMap();
+    private final JsonFactory factory = new JsonFactory();
+    private final CachingClassResolver classResolver;
 
-    static {
+    {
         factory.disable( JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT );
         factory.disable( JsonGenerator.Feature.AUTO_CLOSE_TARGET );
         factory.enable( JsonParser.Feature.ALLOW_COMMENTS );
     }
 
-    public static void deserialize(final GeneratedMessage target, final String json) throws IOException {
+    public JsonStreams(CachingClassResolver classResolver) {
+        this.classResolver = classResolver;
+
+    }
+    public JsonStreams() {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if ( classLoader == null ) {
+            classLoader = this.getClass().getClassLoader();
+        }
+        this.classResolver = new CachingClassResolver( classLoader );
+    }
+
+    public void deserialize(final GeneratedMessage target, final String json) throws IOException {
         JsonParser parser = factory.createParser( json );
 
         try {
@@ -45,9 +63,8 @@ public abstract class JsonStreams {
             parser.close();
         }
     }
-
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private static void deserialize(final GeneratedMessage target, final JsonParser parser) throws IOException {
+    private void deserialize(final GeneratedMessage target, final JsonParser parser) throws IOException {
         Collection<FieldDescriptor> desc = target.getAllDescriptors();
         Map<String, FieldDescriptor> cache = FIELD_NAMES.get( target.getClass() );
 
@@ -101,7 +118,7 @@ public abstract class JsonStreams {
             }
         }
     }
-    public static String serialize(final GeneratedMessage msg) throws IOException {
+    public String serialize(final GeneratedMessage msg) throws IOException {
         StringWriter stream = new StringWriter();
         JsonGenerator gen = factory.createGenerator( stream );
         try {
@@ -114,7 +131,7 @@ public abstract class JsonStreams {
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static void serialize(final GeneratedMessage msg, final JsonGenerator gen) throws IOException {
+    private void serialize(final GeneratedMessage msg, final JsonGenerator gen) throws IOException {
         Collection<FieldDescriptor> desc = msg.getAllDescriptors();
 
         gen.writeStartObject();
@@ -161,8 +178,8 @@ public abstract class JsonStreams {
         gen.writeEndObject();
     }
 
-    @SuppressWarnings("rawtypes")
-    private static Object readValue(final FieldType ftype, final String typeRef, final JsonParser unpacker) throws IOException {
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private Object readValue(final FieldType ftype, final String typeRef, final JsonParser unpacker) throws IOException {
         Object value = null;
         switch ( ftype ) {
             case BYTE:
@@ -193,36 +210,33 @@ public abstract class JsonStreams {
                 break;
             case ENUM:
                 try {
-                    Class<?> enumClass = Class.forName( typeRef );
-                    Object[] enumConstants = enumClass.getEnumConstants();
-
-                    for ( Object obj : enumConstants ) {
-                        Enum e = (Enum) obj;
-                        if ( e.name().equals( unpacker.getText() ) ) {
-                            value = e;
-                        }
-                    }
+                    Class<? extends Enum> enumClass = (Class<? extends Enum>) classResolver.resolve( typeRef );
+                    value = Enums.valueOfFunction( enumClass ).apply( unpacker.getText() );
                 }
-                catch ( IOException ioException ) {
-                    throw ioException;
-                }
-                catch ( Exception e ) {
-                    Throwables.propagate( e );
+                catch ( ClassNotFoundException ex ) {
+                    logger.error( ex.getMessage(), ex );
+                    throw new IOException( ex );
                 }
 
                 break;
             case MESSAGE:
                 try {
-                    Class<?> valueClass = Class.forName( typeRef );
+                    Class<?> valueClass = classResolver.resolve( typeRef );
                     GeneratedMessage m = (GeneratedMessage) valueClass.newInstance();
                     deserialize( m, unpacker.getCurrentToken().toString() );
                     value = m;
                 }
-                catch ( IOException ioException ) {
-                    throw ioException;
+                catch ( InstantiationException ex ) {
+                    logger.error( ex.getMessage(), ex );
+                    throw new IOException( ex );
                 }
-                catch ( Exception e ) {
-                    Throwables.propagate( e );
+                catch ( IllegalAccessException ex ) {
+                    logger.error( ex.getMessage(), ex );
+                    throw new IOException( ex );
+                }
+                catch ( ClassNotFoundException ex ) {
+                    logger.error( ex.getMessage(), ex );
+                    throw new IOException( ex );
                 }
                 break;
             default:
@@ -230,7 +244,7 @@ public abstract class JsonStreams {
         }
         return value;
     }
-    private static void writeValue(final FieldType ftype, final Object value, final JsonGenerator packer) throws IOException {
+    private void writeValue(final FieldType ftype, final Object value, final JsonGenerator packer) throws IOException {
         switch ( ftype ) {
             case BYTE:
                 break;
@@ -270,5 +284,4 @@ public abstract class JsonStreams {
                 throw new Error();
         }
     }
-    private JsonStreams() {}
 }
