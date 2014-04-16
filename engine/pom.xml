@@ -35,6 +35,7 @@
 
         <!-- common -->
         <guava.version>15.0</guava.version>
+        <jackson.version>2.3.2</jackson.version>
 
         <!-- logging -->
         <slf4j.version>1.7.2</slf4j.version>
@@ -78,6 +79,16 @@
                 <groupId>org.msgpack</groupId>
                 <artifactId>msgpack</artifactId>
                 <version>${msgpack.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
             </dependency>
 
             <!-- test dependencies -->
@@ -233,5 +244,6 @@
     <modules>
         <module>core</module>
         <module>messagepack-serializer</module>
+        <module>json-serializer</module>
     </modules>
 </project>

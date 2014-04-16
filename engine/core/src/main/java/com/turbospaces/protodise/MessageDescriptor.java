@@ -45,7 +45,7 @@ public final class MessageDescriptor extends NamedDescriptor {
         this.isException = isException;
     }
 
-    public static final class FieldDescriptor extends NamedDescriptor implements InitializingBean {
+    public static final class FieldDescriptor extends NamedDescriptor implements InitializingBean, Comparable<FieldDescriptor> {
         private final int tag;
         private final MessageType type;
 
@@ -70,6 +70,10 @@ public final class MessageDescriptor extends NamedDescriptor {
         @Override
         public String toString() {
             return Objects.toStringHelper( this ).add( "tag", tag ).add( "name", name ).add( "type", type ).toString();
+        }
+        @Override
+        public int compareTo(FieldDescriptor o) {
+            return ( getTag() < o.getTag() ) ? -1 : ( ( getTag() == o.getTag() ) ? 0 : 1 );
         }
     }
 
