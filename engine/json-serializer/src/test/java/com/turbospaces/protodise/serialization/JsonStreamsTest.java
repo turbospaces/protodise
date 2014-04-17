@@ -5,10 +5,11 @@ import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
 import com.turbospaces.demo.Address;
+import com.turbospaces.demo.User;
 import com.turbospaces.protodise.AbstractStreamsTest;
 
 public class JsonStreamsTest extends AbstractStreamsTest {
-    JsonStreams stream = new JsonStreams();
+    JsonStream stream = new JsonStream();
 
     @Test
     @Override
@@ -20,6 +21,13 @@ public class JsonStreamsTest extends AbstractStreamsTest {
         assertEquals( a1, prototype );
     }
 
+    @Test
     @Override
-    public void user() throws Exception {}
+    public void user() throws Exception {
+        String json = stream.serialize( u );
+        System.out.println( json );
+        User prototype = new User();
+        stream.deserialize( prototype, json );
+        assertEquals( u, prototype );
+    }
 }

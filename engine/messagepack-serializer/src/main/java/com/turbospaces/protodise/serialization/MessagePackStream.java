@@ -28,16 +28,16 @@ import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
-public class MessagePackStreams {
+public class MessagePackStream {
     private final Logger logger = LoggerFactory.getLogger( getClass() );
     private final MessagePack msgpack;
     private final CachingClassResolver classResolver;
 
-    public MessagePackStreams(MessagePack msgpack, CachingClassResolver classResolver) {
+    public MessagePackStream(MessagePack msgpack, CachingClassResolver classResolver) {
         this.msgpack = checkNotNull( msgpack );
         this.classResolver = checkNotNull( classResolver );
     }
-    public MessagePackStreams(MessagePack msgpack) {
+    public MessagePackStream(MessagePack msgpack) {
         this.msgpack = checkNotNull( msgpack );
 
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -46,7 +46,7 @@ public class MessagePackStreams {
         }
         this.classResolver = new CachingClassResolver( classLoader );
     }
-    public MessagePackStreams() {
+    public MessagePackStream() {
         this( new MessagePack() );
     }
 

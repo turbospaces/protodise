@@ -1,14 +1,14 @@
 package com.turbospaces.protodise.serialization;
 
+import java.util.Arrays;
 import java.util.Collection;
 
-import com.google.common.collect.ImmutableSet;
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
 import com.turbospaces.protodise.gen.GeneratedMessage;
 import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
-public final class MapMessageWrapper implements GeneratedMessage {
+final class MapMessageWrapper implements GeneratedMessage {
     private final Collection<FieldDescriptor> fieldDescriptors;
     private final FieldDescriptor keyDesc, valueDesc;
 
@@ -17,7 +17,7 @@ public final class MapMessageWrapper implements GeneratedMessage {
     public MapMessageWrapper(MapMessageType mmt) {
         this.keyDesc = new FieldDescriptor( 1, "key", new ObjectMessageType( mmt.getKeyType(), mmt.getKeyTypeReference() ) );
         this.valueDesc = new FieldDescriptor( 2, "value", new ObjectMessageType( mmt.getValueType(), mmt.getValueTypeReference() ) );
-        this.fieldDescriptors = ImmutableSet.of( this.keyDesc, this.valueDesc );
+        this.fieldDescriptors = Arrays.asList( this.keyDesc, this.valueDesc );
     }
 
     @Override

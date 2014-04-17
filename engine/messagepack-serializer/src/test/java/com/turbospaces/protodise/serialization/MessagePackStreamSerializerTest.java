@@ -8,8 +8,8 @@ import com.turbospaces.demo.Address;
 import com.turbospaces.demo.User;
 import com.turbospaces.protodise.AbstractStreamsTest;
 
-public class MessagePackSerializerTest extends AbstractStreamsTest {
-    MessagePackStreams stream = new MessagePackStreams();
+public class MessagePackStreamSerializerTest extends AbstractStreamsTest {
+    MessagePackStream stream = new MessagePackStream();
 
     @Test
     @Override

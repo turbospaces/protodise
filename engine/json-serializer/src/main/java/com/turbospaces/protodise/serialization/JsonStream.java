@@ -5,7 +5,6 @@ import java.io.StringWriter;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,9 +27,8 @@ import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
-public class JsonStreams {
+public class JsonStream {
     private final Logger logger = LoggerFactory.getLogger( getClass() );
-    private final ConcurrentMap<Class<?>, Map<String, FieldDescriptor>> FIELD_NAMES = Maps.newConcurrentMap();
     private final JsonFactory factory = new JsonFactory();
     private final CachingClassResolver classResolver;
 
@@ -40,11 +38,11 @@ public class JsonStreams {
         factory.enable( JsonParser.Feature.ALLOW_COMMENTS );
     }
 
-    public JsonStreams(CachingClassResolver classResolver) {
+    public JsonStream(CachingClassResolver classResolver) {
         this.classResolver = classResolver;
 
     }
-    public JsonStreams() {
+    public JsonStream() {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         if ( classLoader == null ) {
             classLoader = this.getClass().getClassLoader();
@@ -66,20 +64,12 @@ public class JsonStreams {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private void deserialize(final GeneratedMessage target, final JsonParser parser) throws IOException {
         Collection<FieldDescriptor> desc = target.getAllDescriptors();
-        Map<String, FieldDescriptor> cache = FIELD_NAMES.get( target.getClass() );
-
-        if ( cache == null ) {
-            cache = Maps.newHashMapWithExpectedSize( desc.size() );
-            for ( FieldDescriptor fd : desc ) {
-                cache.put( fd.getName(), fd );
-            }
-            Map<String, FieldDescriptor> prev = FIELD_NAMES.putIfAbsent( target.getClass(), cache );
-            if ( prev != null ) {
-                cache = prev;
-            }
+        Map<String, FieldDescriptor> cache = Maps.newHashMapWithExpectedSize( desc.size() );
+        for ( FieldDescriptor fd : desc ) {
+            cache.put( fd.getName(), fd );
         }
-        assert ( parser.getCurrentToken() == JsonToken.START_OBJECT );
 
+        assert ( parser.getCurrentToken() == JsonToken.START_OBJECT );
         while ( parser.nextToken() != JsonToken.END_OBJECT ) {
             String fieldName = parser.getCurrentName();
             FieldDescriptor fd = cache.get( fieldName );
@@ -183,6 +173,7 @@ public class JsonStreams {
         Object value = null;
         switch ( ftype ) {
             case BYTE:
+                value = unpacker.getByteValue();
                 break;
             case INT16:
                 value = unpacker.getShortValue();
@@ -217,13 +208,12 @@ public class JsonStreams {
                     logger.error( ex.getMessage(), ex );
                     throw new IOException( ex );
                 }
-
                 break;
             case MESSAGE:
                 try {
                     Class<?> valueClass = classResolver.resolve( typeRef );
                     GeneratedMessage m = (GeneratedMessage) valueClass.newInstance();
-                    deserialize( m, unpacker.getCurrentToken().toString() );
+                    deserialize( m, unpacker );
                     value = m;
                 }
                 catch ( InstantiationException ex ) {
@@ -247,6 +237,7 @@ public class JsonStreams {
     private void writeValue(final FieldType ftype, final Object value, final JsonGenerator packer) throws IOException {
         switch ( ftype ) {
             case BYTE:
+                packer.writeNumber( (Byte) value );
                 break;
             case INT16:
                 packer.writeNumber( (Short) value );

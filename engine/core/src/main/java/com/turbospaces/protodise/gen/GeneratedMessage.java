@@ -12,6 +12,9 @@ public interface GeneratedMessage extends Cloneable {
     void setFieldValue(int tag, Object value);
     FieldDescriptor getFieldDescriptor(int tag);
     Collection<FieldDescriptor> getAllDescriptors();
+    //
+    // hash()-equals()-toString()
+    //
     @Override String toString();
     @Override boolean equals(Object other);
     @Override int hashCode();
