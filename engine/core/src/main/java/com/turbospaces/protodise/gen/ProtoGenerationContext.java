@@ -3,17 +3,18 @@ package com.turbospaces.protodise.gen;
 import static com.turbospaces.protodise.gen.GenException.check;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.turbospaces.protodise.EnumDescriptor;
 import com.turbospaces.protodise.InitializingBean;
 import com.turbospaces.protodise.MessageDescriptor;
+import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
 import com.turbospaces.protodise.ProtoContainer;
 import com.turbospaces.protodise.ServiceDescriptor;
-import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
 import com.turbospaces.protodise.ServiceDescriptor.MethodDescriptor;
 import com.turbospaces.protodise.types.FieldType;
 import com.turbospaces.protodise.types.MapMessageType;
@@ -21,13 +22,13 @@ import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
 public class ProtoGenerationContext implements InitializingBean {
-    public Set<ProtoContainer> containers = Sets.newLinkedHashSet();
-    public Set<ProtoContainer> imports = Sets.newLinkedHashSet();
+    public Set<ProtoContainer> containers = new LinkedHashSet<ProtoContainer>();
+    public Set<ProtoContainer> imports = new LinkedHashSet<ProtoContainer>();
     //
-    private Map<ProtoContainer, Map<String, String>> qualifiedMessages = Maps.newHashMap();
-    private Map<ProtoContainer, Map<String, String>> qualifiedEnums = Maps.newHashMap();
-    private Map<ProtoContainer, Map<String, String>> qualifiedServices = Maps.newHashMap();
-    private Map<String, MessageDescriptor> allMessages = Maps.newHashMap();
+    private final Map<ProtoContainer, Map<String, String>> qualifiedMessages = new HashMap<ProtoContainer, Map<String,String>>();
+    private final Map<ProtoContainer, Map<String, String>> qualifiedEnums = new HashMap<ProtoContainer, Map<String,String>>();
+    private final Map<ProtoContainer, Map<String, String>> qualifiedServices = new HashMap<ProtoContainer, Map<String,String>>();
+    private final Map<String, MessageDescriptor> allMessages = new HashMap<String, MessageDescriptor>();
 
     public String qualifiedMessageReference(String ref) {
         Collection<Map<String, String>> messages = qualifiedMessages.values();
@@ -52,14 +53,14 @@ public class ProtoGenerationContext implements InitializingBean {
 
     @Override
     public void init(ProtoGenerationContext ctx) throws Exception {
-        Set<ProtoContainer> all = Sets.newHashSet();
+        Set<ProtoContainer> all = new HashSet<ProtoContainer>();
         all.addAll( containers );
         all.addAll( imports );
 
         for ( ProtoContainer c : all ) {
-            Map<String, String> qMessages = Maps.newHashMap(); // short=package+short
-            Map<String, String> qEnums = Maps.newHashMap(); // short=package+short
-            Map<String, String> qServices = Maps.newHashMap(); // short=package+short
+            Map<String, String> qMessages = new HashMap<String, String>(); // short=package+short
+            Map<String, String> qEnums = new HashMap<String, String>(); // short=package+short
+            Map<String, String> qServices = new HashMap<String, String>(); // short=package+short
 
             qualifiedMessages.put( c, qMessages );
             qualifiedEnums.put( c, qEnums );
@@ -100,7 +101,7 @@ public class ProtoGenerationContext implements InitializingBean {
                 Collection<FieldDescriptor> values = m.getFieldDescriptors().values();
 
                 // check for unique tag numbers
-                Collection<FieldDescriptor> allHierarchyFields = Sets.newHashSet();
+                Collection<FieldDescriptor> allHierarchyFields = new HashSet<MessageDescriptor.FieldDescriptor>();
                 String parent = m.getParent();
                 while ( parent != null ) {
                     String e = qualifiedEnumReference( parent );
@@ -110,7 +111,7 @@ public class ProtoGenerationContext implements InitializingBean {
                     allHierarchyFields.addAll( pdescriptor.getFieldDescriptors().values() );
                     parent = pdescriptor.getParent();
                 }
-                Set<Integer> uniqueTags = Sets.newHashSet();
+                Set<Integer> uniqueTags = new HashSet<Integer>();
                 for ( FieldDescriptor hf : allHierarchyFields ) {
                     check(
                             !uniqueTags.contains( hf.getTag() ),

@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.google.common.base.Objects;
 import com.turbospaces.protodise.ProtoContainer.NamedDescriptor;
 import com.turbospaces.protodise.gen.ProtoGenerationContext;
 import com.turbospaces.protodise.types.MessageType;
@@ -57,6 +56,7 @@ public final class MessageDescriptor extends NamedDescriptor {
         public int getTag() {
             return tag;
         }
+        @Override
         public String getName() {
             return name;
         }
@@ -69,7 +69,7 @@ public final class MessageDescriptor extends NamedDescriptor {
         }
         @Override
         public String toString() {
-            return Objects.toStringHelper( this ).add( "tag", tag ).add( "name", name ).add( "type", type ).toString();
+            return String.format( "FieldDescriptor [tag=%s, name=%s, type=%s]", getTag(), getName(), getType() );
         }
         @Override
         public int compareTo(FieldDescriptor o) {
@@ -79,6 +79,6 @@ public final class MessageDescriptor extends NamedDescriptor {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper( this ).add( "name", name ).add( "parent", parent ).add( "fields", fields ).toString();
+        return String.format( "MessageDescriptor [parent=%s, pkg=%s, isException=%s, fields=%s]", parent, pkg, isException, fields );
     }
 }

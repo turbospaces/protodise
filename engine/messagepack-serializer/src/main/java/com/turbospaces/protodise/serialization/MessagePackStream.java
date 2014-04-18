@@ -1,11 +1,15 @@
 package com.turbospaces.protodise.serialization;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -15,11 +19,9 @@ import org.msgpack.unpacker.Unpacker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.turbospaces.protodise.CachingClassResolver;
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
+import com.turbospaces.protodise.Stream;
 import com.turbospaces.protodise.gen.GeneratedEnum;
 import com.turbospaces.protodise.gen.GeneratedMessage;
 import com.turbospaces.protodise.types.CollectionMessageType;
@@ -28,35 +30,33 @@ import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
-public class MessagePackStream {
+public class MessagePackStream implements Stream {
     private final Logger logger = LoggerFactory.getLogger( getClass() );
     private final MessagePack msgpack;
     private final CachingClassResolver classResolver;
 
-    public MessagePackStream(MessagePack msgpack, CachingClassResolver classResolver) {
-        this.msgpack = checkNotNull( msgpack );
-        this.classResolver = checkNotNull( classResolver );
-    }
     public MessagePackStream(MessagePack msgpack) {
-        this.msgpack = checkNotNull( msgpack );
+        this.msgpack = requireNonNull( msgpack );
 
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         if ( classLoader == null ) {
             classLoader = this.getClass().getClassLoader();
         }
+        this.msgpack.setClassLoader( classLoader );
         this.classResolver = new CachingClassResolver( classLoader );
     }
     public MessagePackStream() {
         this( new MessagePack() );
     }
 
+    @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public void deserialize(final GeneratedMessage target, final byte[] arr) throws IOException {
-        ByteArrayInputStream stream = new ByteArrayInputStream( arr );
+    public void deserialize(final GeneratedMessage target, final InputStream stream) throws IOException {
+        int lenght = stream.available();
         Unpacker unpacker = msgpack.createUnpacker( stream );
 
         try {
-            while ( unpacker.getReadByteCount() < arr.length ) {
+            while ( unpacker.getReadByteCount() < lenght ) {
                 int tag = unpacker.readInt();
                 FieldDescriptor fd = target.getFieldDescriptor( tag );
                 MessageType type = fd.getType();
@@ -64,7 +64,7 @@ public class MessagePackStream {
                 if ( type instanceof CollectionMessageType ) {
                     CollectionMessageType cmt = (CollectionMessageType) type;
                     int size = unpacker.readArrayBegin();
-                    Collection c = cmt.isSet() ? Sets.newHashSetWithExpectedSize( size ) : Lists.newArrayListWithCapacity( size );
+                    Collection c = cmt.isSet() ? new HashSet( size ) : new ArrayList( size );
                     for ( int i = 0; i < size; i++ ) {
                         Object value = readValue( cmt.getElementType(), cmt.getElementTypeReference(), unpacker );
                         c.add( value );
@@ -75,7 +75,7 @@ public class MessagePackStream {
                 else if ( type instanceof MapMessageType ) {
                     MapMessageType mmt = (MapMessageType) type;
                     int size = unpacker.readMapBegin();
-                    Map m = Maps.newHashMap();
+                    Map m = new HashMap();
                     for ( int i = 0; i < size; i++ ) {
                         Object key = readValue( mmt.getKeyType(), mmt.getKeyTypeReference(), unpacker );
                         Object value = readValue( mmt.getValueType(), mmt.getValueTypeReference(), unpacker );
@@ -97,9 +97,9 @@ public class MessagePackStream {
         }
     }
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public byte[] serialize(final GeneratedMessage msg) throws IOException {
+    @Override
+    public void serialize(final GeneratedMessage msg, OutputStream stream) throws IOException {
         Collection<FieldDescriptor> desc = msg.getAllDescriptors();
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
         Packer packer = msgpack.createPacker( stream );
 
         try {
@@ -140,8 +140,7 @@ public class MessagePackStream {
                     writeValue( ftype, value, packer );
                 }
             }
-
-            return stream.toByteArray();
+            stream.flush();
         }
         finally {
             packer.close();
@@ -195,7 +194,9 @@ public class MessagePackStream {
                     GeneratedMessage m;
                     m = (GeneratedMessage) classResolver.resolve( typeRef ).newInstance();
                     byte[] bytes = unpacker.readByteArray();
-                    deserialize( m, bytes );
+                    ByteArrayInputStream in = new ByteArrayInputStream( bytes );
+                    deserialize( m, in );
+                    in.close();
                     value = m;
                 }
                 catch ( InstantiationException ex ) {
@@ -250,8 +251,9 @@ public class MessagePackStream {
                 packer.write( genum.tag() );
                 break;
             case MESSAGE:
-                byte[] bytes = serialize( (GeneratedMessage) value );
-                packer.write( bytes );
+                ExposedByteArrayOutputStream stream = new ExposedByteArrayOutputStream();
+                serialize( (GeneratedMessage) value, stream );
+                packer.write( stream.getBuffer(), 0, stream.size() );
                 break;
             default:
                 throw new Error();

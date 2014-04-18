@@ -4,18 +4,17 @@ import static com.turbospaces.protodise.gen.GenException.check;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.base.Objects;
-import com.google.common.collect.Sets;
 import com.turbospaces.protodise.ProtoContainer.NamedDescriptor;
 import com.turbospaces.protodise.gen.ProtoGenerationContext;
 import com.turbospaces.protodise.types.MessageType;
 
 public final class ServiceDescriptor extends NamedDescriptor {
     private String parent;
-    private Map<String, MethodDescriptor> methods = new HashMap<String, MethodDescriptor>();
+    private final Map<String, MethodDescriptor> methods = new HashMap<String, MethodDescriptor>();
 
     public ServiceDescriptor(String name) {
         this.name = name;
@@ -36,7 +35,7 @@ public final class ServiceDescriptor extends NamedDescriptor {
 
     public static final class MethodDescriptor extends NamedDescriptor implements InitializingBean {
         private MessageType request, response;
-        Set<String> exceptions = Sets.newHashSet();
+        Set<String> exceptions = new HashSet<String>();
 
         public MethodDescriptor(String name) {
             this.name = name;
@@ -65,7 +64,7 @@ public final class ServiceDescriptor extends NamedDescriptor {
                 request.init( ctx );
             }
             response.init( ctx );
-            Set<String> qualified = Sets.newHashSet();
+            Set<String> qualified = new HashSet<String>();
             for ( String exc : exceptions ) {
                 String q = ctx.qualifiedMessageReference( exc );
                 qualified.add( q );
@@ -74,18 +73,12 @@ public final class ServiceDescriptor extends NamedDescriptor {
         }
         @Override
         public String toString() {
-            return Objects
-                    .toStringHelper( this )
-                    .add( "name", name )
-                    .add( "request", request )
-                    .add( "response", response )
-                    .add( "exceptions", exceptions )
-                    .toString();
+            return String.format( "MethodDescriptor [request=%s, response=%s, exceptions=%s]", request, response, exceptions );
         }
     }
 
     @Override
     public String toString() {
-        return Objects.toStringHelper( this ).add( "name", name ).add( "parent", parent ).add( "methods", methods ).toString();
+        return String.format( "ServiceDescriptor [name=%s, parent=%s, methods=%s]", name, parent, methods );
     }
 }

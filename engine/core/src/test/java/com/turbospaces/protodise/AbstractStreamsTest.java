@@ -1,25 +1,43 @@
 package com.turbospaces.protodise;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.turbospaces.demo.Address;
 import com.turbospaces.demo.Colors;
 import com.turbospaces.demo.User;
 
 public abstract class AbstractStreamsTest {
+    
     public static Address a1 = new Address();
     public static Address a2 = new Address();
     public static User u = new User();
+    
+    public Logger logger = LoggerFactory.getLogger( getClass() );
 
     static {
         a1.setAddress( "Kiev, some street, 123" );
         a1.setZip( "100423" );
         a1.setCountry( "UKRAINE" );
         a1.setPrimary( true );
-        a1.setDetails1( ImmutableSet.of( "detail-l1", "details-l2" ) );
-        a1.setDetails2( ImmutableList.of( "detail-s1", "details-s2" ) );
-        a1.setDetails3( ImmutableMap.of( "details-m1", 123L, "details-m3", 321L ) );
+
+        Set<String> details1 = new HashSet<String>();
+        details1.add( "detail-l1" );
+        details1.add( "detail-l2" );
+
+        Map<String, Long> m = new HashMap<String, Long>();
+        m.put( "details-m1", 123L );
+        m.put( "details-m3", 321L );
+
+        a1.setDetails1( details1 );
+        a1.setDetails2( Arrays.asList( "detail-s1", "details-s2" ) );
+        a1.setDetails3( m );
         a1.setColor( Colors.GREEN );
 
         a2 = (Address) a1.clone();
@@ -37,10 +55,25 @@ public abstract class AbstractStreamsTest {
         u.setShortNumber( (short) ( Short.MAX_VALUE / 2 ) );
         u.setOneByte( (byte) 'x' );
         u.setPrimaryAddress( a1 );
-        u.setUnsortedAddresses( ImmutableSet.of( a1, a2 ) );
-        u.setSortedAddresses( ImmutableList.of( a1, a2 ) );
-        u.setZip2addresses( ImmutableMap.of( a1.getZip(), a1, a2.getZip(), a2 ) );
-        u.setPrimitiveSet( ImmutableSet.of( "s1", "s2", "s3", "s4" ) );
+
+        Set<com.turbospaces.demo.Address> unsortedAddresses = new HashSet<Address>();
+        unsortedAddresses.add( a1 );
+        unsortedAddresses.add( a2 );
+
+        Map<String, com.turbospaces.demo.Address> zip2addresses = new HashMap<String, Address>();
+        zip2addresses.put( a1.getZip(), a1 );
+        zip2addresses.put( a2.getZip(), a2 );
+
+        Set<String> primitives = new HashSet<String>();
+        primitives.add( "s1" );
+        primitives.add( "s2" );
+        primitives.add( "s3" );
+        primitives.add( "s4" );
+
+        u.setUnsortedAddresses( unsortedAddresses );
+        u.setSortedAddresses( Arrays.asList( a1, a2 ) );
+        u.setZip2addresses( zip2addresses );
+        u.setPrimitiveSet( primitives );
     }
 
     public abstract void address() throws Exception;

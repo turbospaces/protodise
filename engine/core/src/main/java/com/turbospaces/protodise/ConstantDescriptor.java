@@ -1,10 +1,9 @@
 package com.turbospaces.protodise;
 
-import com.google.common.base.Objects;
 import com.turbospaces.protodise.ProtoContainer.NamedDescriptor;
 import com.turbospaces.protodise.types.FieldType;
 
-public class ConstantDescriptor extends NamedDescriptor {
+public final class ConstantDescriptor extends NamedDescriptor {
     FieldType type;
     Object value;
 
@@ -52,9 +51,8 @@ public class ConstantDescriptor extends NamedDescriptor {
                 throw new Error();
         }
     }
-
     @Override
     public String toString() {
-        return Objects.toStringHelper( this ).add( "name", name ).add( "type", type ).add( "value", value ).toString();
+        return String.format( "ConstantDescriptor [name=%s, type=%s, value=%s]", getName(), getType(), getValue() );
     }
 }

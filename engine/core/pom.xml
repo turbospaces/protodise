@@ -19,11 +19,7 @@
         <dependency>
             <artifactId>slf4j-api</artifactId>
             <groupId>org.slf4j</groupId>
-        </dependency>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
+        </dependency>        
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>

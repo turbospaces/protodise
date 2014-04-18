@@ -1,10 +1,9 @@
 package com.turbospaces.protodise.gen;
 
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.Objects;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Throwables;
-import com.google.common.base.Objects.ToStringHelper;
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
 
 public interface GeneratedMessage extends Cloneable {
@@ -15,9 +14,12 @@ public interface GeneratedMessage extends Cloneable {
     //
     // hash()-equals()-toString()
     //
-    @Override String toString();
-    @Override boolean equals(Object other);
-    @Override int hashCode();
+    @Override
+    String toString();
+    @Override
+    boolean equals(Object other);
+    @Override
+    int hashCode();
 
     public static abstract class Util {
         public static GeneratedMessage clone(GeneratedMessage m) {
@@ -26,7 +28,7 @@ public interface GeneratedMessage extends Cloneable {
                 clone = m.getClass().newInstance();
             }
             catch ( Exception e ) {
-                Throwables.propagate( e );
+                throw new RuntimeException( e );
             }
             Collection<FieldDescriptor> descriptors = m.getAllDescriptors();
             for ( FieldDescriptor f : descriptors ) {
@@ -61,7 +63,7 @@ public interface GeneratedMessage extends Cloneable {
                 Object value = thiz.getFieldValue( f.getTag() );
                 Object otherValue = other.getFieldValue( f.getTag() );
 
-                equals = equals && Objects.equal( value, otherValue );
+                equals = equals && Objects.deepEquals( value, otherValue );
                 if ( !equals ) {
                     break;
                 }
@@ -69,15 +71,28 @@ public interface GeneratedMessage extends Cloneable {
             return equals;
         }
         public static String toString(GeneratedMessage m) {
-            ToStringHelper helper = Objects.toStringHelper( m );
+            StringBuilder b = new StringBuilder();
+            b.append( "{" ).append( m.getClass().getSimpleName() );
+
             Collection<FieldDescriptor> descriptors = m.getAllDescriptors();
-            for ( FieldDescriptor f : descriptors ) {
+            for ( Iterator<FieldDescriptor> iterator = descriptors.iterator(); iterator.hasNext(); ) {
+                FieldDescriptor f = iterator.next();
                 Object value = m.getFieldValue( f.getTag() );
                 if ( value != null ) {
-                    helper.add( f.getName(), value );
+                    b.append( f.getName() ).append( "=" );
+                    if ( value instanceof String ) {
+                        b.append( "\"" + value + "\"" );
+                    }
+                    else {
+                        b.append( value );
+                    }
+                    if ( iterator.hasNext() ) {
+                        b.append( "," );
+                    }
                 }
             }
-            return helper.toString();
+            b.append( "}" );
+            return b.toString();
         }
         private Util() {}
     }

@@ -2,13 +2,13 @@ package com.turbospaces.protodise.gen;
 
 import static com.turbospaces.protodise.gen.GenException.check;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
 import com.turbospaces.protodise.ConstantDescriptor;
 import com.turbospaces.protodise.EnumDescriptor;
 import com.turbospaces.protodise.MessageDescriptor;
@@ -44,7 +44,7 @@ import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
 public class Antlr4ProtoVisitor extends ProtoParserBaseVisitor<Void> {
-    public static final Set<String> KEYWORDS = Sets.newHashSet();
+    public static final Set<String> KEYWORDS = new HashSet<String>();
     private final Logger logger = LoggerFactory.getLogger( getClass() );
     private final ProtoContainer container;
     private final ProtoParserParser parser;

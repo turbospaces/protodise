@@ -1,15 +1,16 @@
 package com.turbospaces.protodise.gen;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.net.URL;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,13 +23,6 @@ import org.antlr.v4.runtime.Recognizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.common.io.CharStreams;
-import com.google.common.io.Files;
 import com.turbospaces.protodise.EnumDescriptor;
 import com.turbospaces.protodise.MessageDescriptor;
 import com.turbospaces.protodise.ProtoContainer;
@@ -50,7 +44,7 @@ public class Generator {
     private final GenLanguage lang;
     private final String version = "0.1-SNAPSHOT";
 
-    public Generator(String lang, File outDir, String... paths) {
+    public Generator(String lang, File outDir, String... paths) throws IOException {
         this.lang = GenLanguage.valueOf( lang.toUpperCase() );
         this.outDir = outDir;
         this.paths = paths;
@@ -66,60 +60,51 @@ public class Generator {
             serviceTemplate = cfg.getTemplate( lang + "/service.ftl" );
         }
         catch ( IOException e ) {
-            Throwables.propagate( e );
+            logger.error( e.getMessage(), e );
+            throw e;
         }
     }
 
     public void run() throws Exception {
+        Charset charset = Charset.forName( "UTF-8" );
         outDir.mkdirs();
         logger.info( "generating code into folder = {}", outDir );
 
-        Preconditions.checkArgument( outDir.isDirectory() );
+        assert ( outDir.isDirectory() );
         ProtoGenerationContext ctx = new ProtoGenerationContext();
         //
         // parse straight protocol files for further stubs generation
         //
         for ( int i = 0; i < paths.length; i++ ) {
             String path = paths[i];
-            File f = loadResource( path );
-            InputStream asStream = new FileInputStream( f );
-            try {
-                String text = CharStreams.toString( new InputStreamReader( asStream ) );
-                logger.info( "parsing protoc file = {}", path );
-                ProtoContainer container = parse( text );
+            File f = resource( path );
 
-                String n = f.getName().substring( 0, f.getName().indexOf( ".protoc" ) );
-                StringBuilder b = new StringBuilder();
-                String[] parts = n.split( "[-_]" );
-                for ( String s : parts ) {
-                    b.append( Character.toUpperCase( s.charAt( 0 ) ) + s.substring( 1 ) );
-                }
+            String text = new String( Files.readAllBytes( f.toPath() ), charset );
+            logger.info( "parsing protoc file = {}", path );
+            ProtoContainer container = parse( text );
 
-                container.name = b.toString();
-                ctx.containers.add( container );
+            String n = f.getName().substring( 0, f.getName().indexOf( ".protoc" ) );
+            StringBuilder b = new StringBuilder();
+            String[] parts = n.split( "[-_]" );
+            for ( String s : parts ) {
+                b.append( Character.toUpperCase( s.charAt( 0 ) ) + s.substring( 1 ) );
             }
-            finally {
-                asStream.close();
-            }
+
+            container.name = b.toString();
+            ctx.containers.add( container );
         }
         //
         // parse imported, but skip generation
         //
-        Set<String> allImports = Sets.newLinkedHashSet();
+        Set<String> allImports = new LinkedHashSet<String>();
         for ( ProtoContainer c : ctx.containers ) {
             allImports.addAll( c.imports );
         }
 
         for ( String path : allImports ) {
-            InputStream asStream = new FileInputStream( loadResource( path ) );
-            try {
-                String text = CharStreams.toString( new InputStreamReader( asStream ) );
-                logger.info( "parsing imported protoc file = {}", path );
-                ctx.imports.add( parse( text ) );
-            }
-            finally {
-                asStream.close();
-            }
+            String text = new String( Files.readAllBytes( resource( path ).toPath() ), charset );
+            logger.info( "parsing imported protoc file = {}", path );
+            ctx.imports.add( parse( text ) );
         }
 
         ctx.init( ctx );
@@ -128,62 +113,62 @@ public class Generator {
             Collection<EnumDescriptor> enums = root.enums.values();
             Collection<MessageDescriptor> messages = root.messages.values();
             Collection<ServiceDescriptor> services = root.services.values();
-            File pkg = new File( outDir, lang.pkgName.apply( root.getPkg() ).replace( '.', File.separatorChar ) );
+            File pkg = new File( outDir, root.getPkg().replace( '.', File.separatorChar ) );
             pkg.mkdirs();
-            Map<String, Object> common = Maps.newHashMap();
+            Map<String, Object> common = new HashMap<String, Object>();
             common.put( "pkg", root.getPkg() );
             common.put( "version", version );
 
             {
                 StringWriter out = new StringWriter();
-                Map<String, Object> model = Maps.newHashMap();
+                Map<String, Object> model = new HashMap<String, Object>();
                 model.put( "proto", root );
                 model.putAll( common );
                 protoTemplate.process( model, out );
 
-                String filename = root.getName() + '.' + lang.classPrefix;
+                String filename = root.getName() + '.' + lang.name().toLowerCase();
                 File f = new File( pkg, filename );
                 f.getParentFile().mkdirs();
-                Files.write( out.toString().getBytes( Charsets.UTF_8 ), f );
+                Files.write( f.toPath(), out.toString().getBytes( charset ) );
             }
 
             for ( EnumDescriptor d : enums ) {
                 StringWriter out = new StringWriter();
-                Map<String, Object> model = Maps.newHashMap();
+                Map<String, Object> model = new HashMap<String, Object>();
                 model.put( "enum", d );
                 model.putAll( common );
                 enumTemplate.process( model, out );
 
-                String filename = d.getName() + '.' + lang.classPrefix;
+                String filename = d.getName() + '.' + lang.name().toLowerCase();
                 File f = new File( pkg, filename );
                 f.getParentFile().mkdirs();
-                Files.write( out.toString().getBytes( Charsets.UTF_8 ), f );
+                Files.write( f.toPath(), out.toString().getBytes( charset ) );
             }
 
             for ( MessageDescriptor d : messages ) {
                 StringWriter out = new StringWriter();
-                Map<String, Object> model = Maps.newHashMap();
+                Map<String, Object> model = new HashMap<String, Object>();
                 model.put( "clazz", d );
                 model.putAll( common );
                 classTemplate.process( model, out );
 
-                String filename = d.getName() + '.' + lang.classPrefix;
+                String filename = d.getName() + '.' + lang.name().toLowerCase();
                 File f = new File( pkg, filename );
                 f.getParentFile().mkdirs();
-                Files.write( out.toString().getBytes( Charsets.UTF_8 ), f );
+                Files.write( f.toPath(), out.toString().getBytes( charset ) );
             }
 
             for ( ServiceDescriptor s : services ) {
                 StringWriter out = new StringWriter();
-                Map<String, Object> model = Maps.newHashMap();
+                Map<String, Object> model = new HashMap<String, Object>();
                 model.put( "service", s );
                 model.putAll( common );
                 serviceTemplate.process( model, out );
 
-                String filename = s.getName() + '.' + lang.classPrefix;
+                String filename = s.getName() + '.' + lang.name().toLowerCase();
                 File f = new File( pkg, filename );
                 f.getParentFile().mkdirs();
-                Files.write( out.toString().getBytes( Charsets.UTF_8 ), f );
+                Files.write( f.toPath(), out.toString().getBytes( charset ) );
             }
         }
     }
@@ -197,7 +182,7 @@ public class Generator {
         parser.addErrorListener( new BaseErrorListener() {
             @Override
             public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String msg,
-                                    RecognitionException e) {
+                    RecognitionException e) {
                 List<String> stack = ( (ProtoParserParser) recognizer ).getRuleInvocationStack();
                 Collections.reverse( stack );
                 logger.error( "rule stack: {}", stack );
@@ -210,14 +195,13 @@ public class Generator {
         visitor.visit( protoContext );
         return container;
     }
-    public static File loadResource(String path) {
+    public static File resource(String path) {
         File f = new File( path );
         if ( f.exists() ) {
             return f;
         }
         else {
             URL resource = Thread.currentThread().getContextClassLoader().getResource( path );
-            Preconditions.checkNotNull( resource, "no such classpath resource = %s", path );
             return new File( resource.getFile() );
         }
     }

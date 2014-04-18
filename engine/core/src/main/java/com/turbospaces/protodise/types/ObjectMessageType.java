@@ -1,6 +1,5 @@
 package com.turbospaces.protodise.types;
 
-import com.google.common.base.Objects;
 import com.turbospaces.protodise.gen.ProtoGenerationContext;
 
 public class ObjectMessageType implements MessageType {
@@ -52,7 +51,7 @@ public class ObjectMessageType implements MessageType {
     }
     @Override
     public String toString() {
-        return Objects.toStringHelper( this ).add( "type", type ).add( "ref", ref ).toString();
+        return String.format( "ObjectMessageType [type=%s, ref=%s]", type, ref );
     }
     @Override
     public boolean isMap() {

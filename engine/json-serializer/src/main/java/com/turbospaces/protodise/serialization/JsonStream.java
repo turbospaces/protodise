@@ -3,6 +3,9 @@ package com.turbospaces.protodise.serialization;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
@@ -13,10 +16,6 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.google.common.base.Enums;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.turbospaces.protodise.CachingClassResolver;
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
 import com.turbospaces.protodise.gen.GeneratedEnum;
@@ -38,10 +37,6 @@ public class JsonStream {
         factory.enable( JsonParser.Feature.ALLOW_COMMENTS );
     }
 
-    public JsonStream(CachingClassResolver classResolver) {
-        this.classResolver = classResolver;
-
-    }
     public JsonStream() {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         if ( classLoader == null ) {
@@ -64,7 +59,7 @@ public class JsonStream {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     private void deserialize(final GeneratedMessage target, final JsonParser parser) throws IOException {
         Collection<FieldDescriptor> desc = target.getAllDescriptors();
-        Map<String, FieldDescriptor> cache = Maps.newHashMapWithExpectedSize( desc.size() );
+        Map<String, FieldDescriptor> cache = new HashMap<String, FieldDescriptor>( desc.size() );
         for ( FieldDescriptor fd : desc ) {
             cache.put( fd.getName(), fd );
         }
@@ -77,7 +72,7 @@ public class JsonStream {
 
             if ( type instanceof CollectionMessageType ) {
                 CollectionMessageType cmt = (CollectionMessageType) type;
-                Collection c = cmt.isSet() ? Sets.newHashSet() : Lists.newLinkedList();
+                Collection c = cmt.isSet() ? new HashSet() : new LinkedList();
                 JsonToken startArrayToken = parser.nextToken();
                 assert ( startArrayToken == JsonToken.START_ARRAY );
 
@@ -89,7 +84,7 @@ public class JsonStream {
             }
             else if ( type instanceof MapMessageType ) {
                 MapMessageType mmt = (MapMessageType) type;
-                Map m = Maps.newHashMap();
+                Map m = new HashMap();
                 JsonToken startArray = parser.nextToken();
                 assert ( startArray == JsonToken.START_ARRAY );
                 while ( parser.nextToken() != JsonToken.END_ARRAY ) {
@@ -201,8 +196,8 @@ public class JsonStream {
                 break;
             case ENUM:
                 try {
-                    Class<? extends Enum> enumClass = (Class<? extends Enum>) classResolver.resolve( typeRef );
-                    value = Enums.valueOfFunction( enumClass ).apply( unpacker.getText() );
+                    Class enumClass = classResolver.resolve( typeRef );
+                    value = Enum.valueOf( enumClass, unpacker.getText() );
                 }
                 catch ( ClassNotFoundException ex ) {
                     logger.error( ex.getMessage(), ex );

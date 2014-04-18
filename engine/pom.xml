@@ -34,7 +34,6 @@
         <msgpack.version>0.6.10</msgpack.version>
 
         <!-- common -->
-        <guava.version>15.0</guava.version>
         <jackson.version>2.3.2</jackson.version>
 
         <!-- logging -->
@@ -55,13 +54,6 @@
                 <artifactId>slf4j-api</artifactId>
                 <groupId>org.slf4j</groupId>
                 <version>${slf4j.version}</version>
-            </dependency>
-
-            <!-- commons -->
-            <dependency>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava</artifactId>
-                <version>${guava.version}</version>
             </dependency>
 
             <!-- app -->
@@ -205,9 +197,7 @@
                                         <artifactId>
                                             exec-maven-plugin
                                         </artifactId>
-                                        <versionRange>
-                                            [1.2.1.jbossorg-3,)
-                                        </versionRange>
+                                        <versionRange>[1.2.1,)</versionRange>
                                         <goals>
                                             <goal>java</goal>
                                         </goals>

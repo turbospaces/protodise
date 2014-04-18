@@ -4,13 +4,12 @@ import static com.turbospaces.protodise.gen.GenException.check;
 
 import java.util.Collections;
 import java.util.SortedMap;
+import java.util.TreeMap;
 
-import com.google.common.base.Objects;
-import com.google.common.collect.Maps;
 import com.turbospaces.protodise.ProtoContainer.NamedDescriptor;
 
 public final class EnumDescriptor extends NamedDescriptor {
-    private SortedMap<Integer, String> members = Maps.newTreeMap();
+    private final SortedMap<Integer, String> members = new TreeMap<Integer, String>();
 
     public EnumDescriptor(String name) {
         this.name = name;
@@ -21,8 +20,9 @@ public final class EnumDescriptor extends NamedDescriptor {
     }
     @Override
     public String toString() {
-        return Objects.toStringHelper( this ).add( "name", name ).add( "values", members ).toString();
+        return String.format( "EnumDescriptor [name=%s, members=%s]", getName(), getMembers() );
     }
+    @Override
     public String getName() {
         return name;
     }

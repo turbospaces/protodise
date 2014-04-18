@@ -1,33 +1,36 @@
 package com.turbospaces.protodise.serialization;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 
-import com.google.common.base.Throwables;
 import com.turbospaces.demo.Address;
 import com.turbospaces.protodise.AbstractStreamsTest;
+import com.turbospaces.protodise.Stream.ExposedByteArrayOutputStream;
 
 public class MessagePackStreamBenchmark {
     public static void main(String... args) throws InterruptedException {
         final MessagePackStream stream = new MessagePackStream();
-        final int threads = 4;
+        final int threads = Runtime.getRuntime().availableProcessors();
         final int iterations = 1024 * 1024;
         final CountDownLatch c = new CountDownLatch( iterations * threads );
         final long now = System.currentTimeMillis();
 
         for ( int i = 0; i < threads; i++ ) {
             Thread t = new Thread( new Runnable() {
+                @Override
                 public void run() {
                     try {
                         for ( int j = 0; j < iterations; j++ ) {
-                            byte[] bytes = stream.serialize( AbstractStreamsTest.a1 );
+                            ExposedByteArrayOutputStream baos = new ExposedByteArrayOutputStream();
+                            stream.serialize( AbstractStreamsTest.a1, baos );
                             Address prototype = new Address();
-                            stream.deserialize( prototype, bytes );
+                            stream.deserialize( prototype, new ByteArrayInputStream( baos.getBuffer(), 0, baos.size() ) );
                             c.countDown();
                         }
                     }
                     catch ( IOException ex ) {
-                        Throwables.propagate( ex );
+                        throw new RuntimeException( ex );
                     }
                 }
             } );
