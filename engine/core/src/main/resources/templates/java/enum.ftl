@@ -4,9 +4,10 @@
 package ${pkg};
 
 import com.turbospaces.protodise.gen.*;
+import com.turbospaces.protodise.*;
 
 <#assign members = enum.members>
-public enum ${enum.name} implements GeneratedEnum<${enum.name}> {
+public enum ${enum.name} implements GeneratedEnum {
     <#list members.entrySet() as entry>
     ${entry.value} (${entry.key})<#if entry_has_next>,<#else>;</#if>
     </#list>
@@ -18,14 +19,8 @@ public enum ${enum.name} implements GeneratedEnum<${enum.name}> {
     @Override
     public int tag() {return tag;}
     @Override
-    public ${enum.name} valueOf(int tag) {
-        ${enum.name} item = null;
-        for ( ${enum.name} next : values() ) {
-            if ( next.tag == tag ) {
-                item = next;
-                break;
-            }
-        }
-        return item;
+    public int getClassId() {
+       return CLASS_ID;
     }
+    public static final int CLASS_ID = Misc.hash32(${enum.name}.class.getName());
 }

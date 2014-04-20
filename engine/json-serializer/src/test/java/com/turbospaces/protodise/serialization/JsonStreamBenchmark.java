@@ -1,14 +1,14 @@
 package com.turbospaces.protodise.serialization;
 
-import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.util.concurrent.CountDownLatch;
 
-import com.turbospaces.demo.Address;
 import com.turbospaces.protodise.AbstractStreamsTest;
+import com.turbospaces.protodise.Misc.ExposedByteArrayOutputStream;
 
 public class JsonStreamBenchmark {
     public static void main(String... args) throws InterruptedException {
-        final JsonStream stream = new JsonStream();
+        final JsonStream stream = new JsonStream( AbstractStreamsTest.registry );
         final int threads = Runtime.getRuntime().availableProcessors();
         final int iterations = 1024 * 1024;
         final CountDownLatch c = new CountDownLatch( iterations * threads );
@@ -20,13 +20,13 @@ public class JsonStreamBenchmark {
                 public void run() {
                     try {
                         for ( int j = 0; j < iterations; j++ ) {
-                            String json = stream.serialize( AbstractStreamsTest.a1 );
-                            Address prototype = new Address();
-                            stream.deserialize( prototype, json );
+                            ExposedByteArrayOutputStream baos = new ExposedByteArrayOutputStream( 512 );
+                            stream.serialize( AbstractStreamsTest.a1, baos );
+                            stream.deserialize( new ByteArrayInputStream( baos.getBuffer(), 0, baos.size() ) );
                             c.countDown();
                         }
                     }
-                    catch ( IOException ex ) {
+                    catch ( Exception ex ) {
                         throw new RuntimeException( ex );
                     }
                 }

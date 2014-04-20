@@ -13,15 +13,14 @@ import com.turbospaces.demo.User;
 import com.turbospaces.protodise.AbstractStreamsTest;
 
 public class MessagePackStreamSerializerTest extends AbstractStreamsTest {
-    MessagePackStream stream = new MessagePackStream();
+    MessagePackStream stream = new MessagePackStream( registry );
 
     @Test
     @Override
     public void address() throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         stream.serialize( a1, baos );
-        Address prototype = new Address();
-        stream.deserialize( prototype, new ByteArrayInputStream( baos.toByteArray() ) );
+        Address prototype = (Address) stream.deserialize( new ByteArrayInputStream( baos.toByteArray() ) );
         assertEquals( a1, prototype );
     }
 
@@ -30,8 +29,7 @@ public class MessagePackStreamSerializerTest extends AbstractStreamsTest {
     public void user() throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         stream.serialize( u, baos );
-        User prototype = new User();
-        stream.deserialize( prototype, new ByteArrayInputStream( baos.toByteArray() ) );
+        User prototype = (User) stream.deserialize( new ByteArrayInputStream( baos.toByteArray() ) );
         assertEquals( u, prototype );
     }
 

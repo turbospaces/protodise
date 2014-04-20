@@ -16,11 +16,10 @@ import java.util.Set;
 import org.msgpack.MessagePack;
 import org.msgpack.packer.Packer;
 import org.msgpack.unpacker.Unpacker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import com.turbospaces.protodise.CachingClassResolver;
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
+import com.turbospaces.protodise.MessageRegistry;
+import com.turbospaces.protodise.Misc.ExposedByteArrayOutputStream;
 import com.turbospaces.protodise.Stream;
 import com.turbospaces.protodise.gen.GeneratedEnum;
 import com.turbospaces.protodise.gen.GeneratedMessage;
@@ -30,32 +29,29 @@ import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
-public class MessagePackStream implements Stream {
-    private final Logger logger = LoggerFactory.getLogger( getClass() );
+public final class MessagePackStream implements Stream {
     private final MessagePack msgpack;
-    private final CachingClassResolver classResolver;
+    private final MessageRegistry registry;
 
-    public MessagePackStream(MessagePack msgpack) {
+    public MessagePackStream(MessagePack msgpack, MessageRegistry registry) {
+        this.registry = requireNonNull( registry );
         this.msgpack = requireNonNull( msgpack );
-
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if ( classLoader == null ) {
-            classLoader = this.getClass().getClassLoader();
-        }
-        this.msgpack.setClassLoader( classLoader );
-        this.classResolver = new CachingClassResolver( classLoader );
     }
-    public MessagePackStream() {
-        this( new MessagePack() );
+
+    public MessagePackStream(MessageRegistry registry) {
+        this( new MessagePack(), registry );
     }
 
     @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public void deserialize(final GeneratedMessage target, final InputStream stream) throws IOException {
+    public GeneratedMessage
+            deserialize(final InputStream stream) throws IOException, InstantiationException, IllegalAccessException, ClassNotFoundException {
         int lenght = stream.available();
         Unpacker unpacker = msgpack.createUnpacker( stream );
 
         try {
+            int classId = unpacker.readInt();
+            GeneratedMessage target = registry.newInstance( classId );
             while ( unpacker.getReadByteCount() < lenght ) {
                 int tag = unpacker.readInt();
                 FieldDescriptor fd = target.getFieldDescriptor( tag );
@@ -66,7 +62,7 @@ public class MessagePackStream implements Stream {
                     int size = unpacker.readArrayBegin();
                     Collection c = cmt.isSet() ? new HashSet( size ) : new ArrayList( size );
                     for ( int i = 0; i < size; i++ ) {
-                        Object value = readValue( cmt.getElementType(), cmt.getElementTypeReference(), unpacker );
+                        Object value = readValue( cmt.getElementType(), unpacker );
                         c.add( value );
                     }
                     target.setFieldValue( tag, c );
@@ -77,8 +73,8 @@ public class MessagePackStream implements Stream {
                     int size = unpacker.readMapBegin();
                     Map m = new HashMap();
                     for ( int i = 0; i < size; i++ ) {
-                        Object key = readValue( mmt.getKeyType(), mmt.getKeyTypeReference(), unpacker );
-                        Object value = readValue( mmt.getValueType(), mmt.getValueTypeReference(), unpacker );
+                        Object key = readValue( mmt.getKeyType(), unpacker );
+                        Object value = readValue( mmt.getValueType(), unpacker );
                         m.put( key, value );
                     }
                     target.setFieldValue( tag, m );
@@ -87,10 +83,11 @@ public class MessagePackStream implements Stream {
                 else {
                     ObjectMessageType omt = (ObjectMessageType) type;
                     FieldType ftype = omt.getType();
-                    Object value = readValue( ftype, omt.getTypeReference(), unpacker );
+                    Object value = readValue( ftype, unpacker );
                     target.setFieldValue( tag, value );
                 }
             }
+            return target;
         }
         finally {
             unpacker.close();
@@ -98,11 +95,12 @@ public class MessagePackStream implements Stream {
     }
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
-    public void serialize(final GeneratedMessage msg, OutputStream stream) throws IOException {
+    public void serialize(final GeneratedMessage msg, final OutputStream stream) throws IOException {
         Collection<FieldDescriptor> desc = msg.getAllDescriptors();
         Packer packer = msgpack.createPacker( stream );
 
         try {
+            packer.write( msg.getClassId() );
             for ( FieldDescriptor fd : desc ) {
                 int tag = fd.getTag();
                 MessageType type = fd.getType();
@@ -146,8 +144,8 @@ public class MessagePackStream implements Stream {
             packer.close();
         }
     }
-    @SuppressWarnings("rawtypes")
-    private Object readValue(final FieldType ftype, final String typeRef, final Unpacker unpacker) throws IOException {
+    private Object
+            readValue(final FieldType ftype, final Unpacker unpacker) throws IOException, InstantiationException, IllegalAccessException, ClassNotFoundException {
         Object value = null;
         switch ( ftype ) {
             case BYTE:
@@ -178,39 +176,15 @@ public class MessagePackStream implements Stream {
                 value = unpacker.readByteArray();
                 break;
             case ENUM:
-                try {
-                    int orderNum = unpacker.readInt();
-                    Class<?> enumClass = classResolver.resolve( typeRef );
-                    GeneratedEnum e = (GeneratedEnum) enumClass.getEnumConstants()[0];
-                    value = e.valueOf( orderNum );
-                }
-                catch ( ClassNotFoundException ex ) {
-                    logger.error( ex.getMessage(), ex );
-                    throw new IOException( ex );
-                }
+                int classId = unpacker.readInt();
+                int tag = unpacker.readInt();
+                value = registry.enumInstance( classId, tag );
                 break;
             case MESSAGE:
-                try {
-                    GeneratedMessage m;
-                    m = (GeneratedMessage) classResolver.resolve( typeRef ).newInstance();
-                    byte[] bytes = unpacker.readByteArray();
-                    ByteArrayInputStream in = new ByteArrayInputStream( bytes );
-                    deserialize( m, in );
-                    in.close();
-                    value = m;
-                }
-                catch ( InstantiationException ex ) {
-                    logger.error( ex.getMessage(), ex );
-                    throw new IOException( ex );
-                }
-                catch ( IllegalAccessException ex ) {
-                    logger.error( ex.getMessage(), ex );
-                    throw new IOException( ex );
-                }
-                catch ( ClassNotFoundException ex ) {
-                    logger.error( ex.getMessage(), ex );
-                    throw new IOException( ex );
-                }
+                byte[] bytes = unpacker.readByteArray();
+                ByteArrayInputStream in = new ByteArrayInputStream( bytes );
+                value = deserialize( in );
+                in.close();
                 break;
             default:
                 throw new Error();
@@ -247,7 +221,8 @@ public class MessagePackStream implements Stream {
                 packer.write( (byte[]) value );
                 break;
             case ENUM:
-                GeneratedEnum<?> genum = (GeneratedEnum<?>) value;
+                GeneratedEnum genum = (GeneratedEnum) value;
+                packer.write( genum.getClassId() );
                 packer.write( genum.tag() );
                 break;
             case MESSAGE:

@@ -1,23 +1,26 @@
 package com.turbospaces.protodise.serialization;
 
 import java.io.IOException;
-import java.io.StringWriter;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.turbospaces.protodise.CachingClassResolver;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
+import com.turbospaces.protodise.MessageRegistry;
+import com.turbospaces.protodise.Stream;
 import com.turbospaces.protodise.gen.GeneratedEnum;
 import com.turbospaces.protodise.gen.GeneratedMessage;
 import com.turbospaces.protodise.types.CollectionMessageType;
@@ -26,58 +29,57 @@ import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.MessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
 
-public class JsonStream {
-    private final Logger logger = LoggerFactory.getLogger( getClass() );
+public class JsonStream implements Stream {
+    public static final String QUALIFIER = "qualifier";
+
     private final JsonFactory factory = new JsonFactory();
-    private final CachingClassResolver classResolver;
+    private final ObjectMapper mapper;
+    private final MessageRegistry registry;
 
     {
-        factory.disable( JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT );
-        factory.disable( JsonGenerator.Feature.AUTO_CLOSE_TARGET );
         factory.enable( JsonParser.Feature.ALLOW_COMMENTS );
+        mapper = new ObjectMapper( factory );
     }
 
-    public JsonStream() {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if ( classLoader == null ) {
-            classLoader = this.getClass().getClassLoader();
-        }
-        this.classResolver = new CachingClassResolver( classLoader );
+    public JsonStream(MessageRegistry registry) {
+        this.registry = registry;
     }
 
-    public void deserialize(final GeneratedMessage target, final String json) throws IOException {
-        JsonParser parser = factory.createParser( json );
-
-        try {
-            parser.nextToken();
-            deserialize( target, parser );
-        }
-        finally {
-            parser.close();
-        }
+    @Override
+    public GeneratedMessage deserialize(final InputStream in) throws IOException, InstantiationException, IllegalAccessException {
+        JsonNode tree = mapper.readTree( in );
+        String qualifier = tree.get( QUALIFIER ).asText();
+        GeneratedMessage target = registry.newInstance( qualifier );
+        deserialize( target, tree );
+        return target;
     }
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private void deserialize(final GeneratedMessage target, final JsonParser parser) throws IOException {
+    private void deserialize(final GeneratedMessage target, final JsonNode tree) throws IOException, InstantiationException, IllegalAccessException {
         Collection<FieldDescriptor> desc = target.getAllDescriptors();
         Map<String, FieldDescriptor> cache = new HashMap<String, FieldDescriptor>( desc.size() );
         for ( FieldDescriptor fd : desc ) {
             cache.put( fd.getName(), fd );
         }
 
-        assert ( parser.getCurrentToken() == JsonToken.START_OBJECT );
-        while ( parser.nextToken() != JsonToken.END_OBJECT ) {
-            String fieldName = parser.getCurrentName();
+        Iterator<Entry<String, JsonNode>> fields = tree.fields();
+        while ( fields.hasNext() ) {
+            Entry<String, JsonNode> entry = fields.next();
+            String fieldName = entry.getKey();
+            JsonNode node = entry.getValue();
+            if ( QUALIFIER.equals( fieldName ) )
+                continue;
+
             FieldDescriptor fd = cache.get( fieldName );
             MessageType type = fd.getType();
 
             if ( type instanceof CollectionMessageType ) {
                 CollectionMessageType cmt = (CollectionMessageType) type;
                 Collection c = cmt.isSet() ? new HashSet() : new LinkedList();
-                JsonToken startArrayToken = parser.nextToken();
-                assert ( startArrayToken == JsonToken.START_ARRAY );
-
-                while ( parser.nextToken() != JsonToken.END_ARRAY ) {
-                    Object value = readValue( cmt.getElementType(), cmt.getElementTypeReference(), parser );
+                ArrayNode arrayNode = (ArrayNode) node;
+                Iterator<JsonNode> elements = arrayNode.elements();
+                while ( elements.hasNext() ) {
+                    JsonNode arrElementNode = elements.next();
+                    Object value = readValue( cmt.getElementType(), cmt.getElementTypeReference(), arrElementNode );
                     c.add( value );
                 }
                 target.setFieldValue( fd.getTag(), c );
@@ -85,11 +87,14 @@ public class JsonStream {
             else if ( type instanceof MapMessageType ) {
                 MapMessageType mmt = (MapMessageType) type;
                 Map m = new HashMap();
-                JsonToken startArray = parser.nextToken();
-                assert ( startArray == JsonToken.START_ARRAY );
-                while ( parser.nextToken() != JsonToken.END_ARRAY ) {
+                ArrayNode arrayNode = (ArrayNode) node;
+                Iterator<JsonNode> elements = arrayNode.elements();
+
+                while ( elements.hasNext() ) {
+                    JsonNode arrElementNode = elements.next();
+
                     MapMessageWrapper mmw = new MapMessageWrapper( mmt );
-                    deserialize( mmw, parser );
+                    deserialize( mmw, arrElementNode );
                     m.put( mmw.key, mmw.value );
                 }
                 target.setFieldValue( fd.getTag(), m );
@@ -97,22 +102,21 @@ public class JsonStream {
             else {
                 ObjectMessageType omt = (ObjectMessageType) type;
                 FieldType ftype = omt.getType();
-                parser.nextToken();
-                Object value = readValue( ftype, omt.getTypeReference(), parser );
+                Object value = readValue( ftype, omt.getTypeReference(), node );
                 target.setFieldValue( fd.getTag(), value );
             }
         }
     }
-    public String serialize(final GeneratedMessage msg) throws IOException {
-        StringWriter stream = new StringWriter();
-        JsonGenerator gen = factory.createGenerator( stream );
+    @Override
+    public void serialize(final GeneratedMessage msg, final OutputStream out) throws IOException {
+        JsonGenerator gen = factory.createGenerator( out );
         try {
             serialize( msg, gen );
         }
         finally {
             gen.close();
+            out.flush();
         }
-        return stream.toString();
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -120,6 +124,9 @@ public class JsonStream {
         Collection<FieldDescriptor> desc = msg.getAllDescriptors();
 
         gen.writeStartObject();
+        if ( !( msg instanceof MapMessageWrapper ) ) {
+            gen.writeStringField( QUALIFIER, msg.getClass().getName() );
+        }
         for ( FieldDescriptor fd : desc ) {
             MessageType type = fd.getType();
             String fieldName = fd.getName();
@@ -163,66 +170,44 @@ public class JsonStream {
         gen.writeEndObject();
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    private Object readValue(final FieldType ftype, final String typeRef, final JsonParser unpacker) throws IOException {
+    private Object
+            readValue(final FieldType ftype, final String typeRef, final JsonNode node) throws IOException, InstantiationException, IllegalAccessException {
         Object value = null;
         switch ( ftype ) {
             case BYTE:
-                value = unpacker.getByteValue();
+                value = (byte) node.shortValue();
                 break;
             case INT16:
-                value = unpacker.getShortValue();
+                value = node.shortValue();
                 break;
             case INT32:
-                value = unpacker.getIntValue();
+                value = node.intValue();
                 break;
             case INT64:
-                value = unpacker.getLongValue();
+                value = node.longValue();
                 break;
             case STRING:
-                value = unpacker.getText();
+                value = node.asText();
                 break;
             case BOOL:
-                value = unpacker.getBooleanValue();
+                value = node.booleanValue();
                 break;
             case FLOAT:
-                value = unpacker.getFloatValue();
+                value = node.floatValue();
                 break;
             case DOUBLE:
-                value = unpacker.getDoubleValue();
+                value = node.doubleValue();
                 break;
             case BINARY:
-                value = unpacker.getBinaryValue();
+                value = node.binaryValue();
                 break;
             case ENUM:
-                try {
-                    Class enumClass = classResolver.resolve( typeRef );
-                    value = Enum.valueOf( enumClass, unpacker.getText() );
-                }
-                catch ( ClassNotFoundException ex ) {
-                    logger.error( ex.getMessage(), ex );
-                    throw new IOException( ex );
-                }
+                value = registry.enumInstance( typeRef, node.asText() );
                 break;
             case MESSAGE:
-                try {
-                    Class<?> valueClass = classResolver.resolve( typeRef );
-                    GeneratedMessage m = (GeneratedMessage) valueClass.newInstance();
-                    deserialize( m, unpacker );
-                    value = m;
-                }
-                catch ( InstantiationException ex ) {
-                    logger.error( ex.getMessage(), ex );
-                    throw new IOException( ex );
-                }
-                catch ( IllegalAccessException ex ) {
-                    logger.error( ex.getMessage(), ex );
-                    throw new IOException( ex );
-                }
-                catch ( ClassNotFoundException ex ) {
-                    logger.error( ex.getMessage(), ex );
-                    throw new IOException( ex );
-                }
+                GeneratedMessage m = registry.newInstance( typeRef );
+                deserialize( m, node );
+                value = m;
                 break;
             default:
                 throw new Error();
@@ -259,7 +244,7 @@ public class JsonStream {
                 packer.writeBinary( (byte[]) value );
                 break;
             case ENUM:
-                GeneratedEnum<?> genum = (GeneratedEnum<?>) value;
+                GeneratedEnum genum = (GeneratedEnum) value;
                 packer.writeString( genum.toString() );
                 break;
             case MESSAGE:

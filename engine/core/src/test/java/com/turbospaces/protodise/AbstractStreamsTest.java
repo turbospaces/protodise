@@ -11,9 +11,11 @@ import org.slf4j.LoggerFactory;
 
 import com.turbospaces.demo.Address;
 import com.turbospaces.demo.Colors;
+import com.turbospaces.demo.Example;
 import com.turbospaces.demo.User;
 
 public abstract class AbstractStreamsTest {
+    public static MessageRegistry registry = new MessageRegistry();
     
     public static Address a1 = new Address();
     public static Address a2 = new Address();
@@ -22,6 +24,8 @@ public abstract class AbstractStreamsTest {
     public Logger logger = LoggerFactory.getLogger( getClass() );
 
     static {
+        Example.registerAll( registry );
+        
         a1.setAddress( "Kiev, some street, 123" );
         a1.setZip( "100423" );
         a1.setCountry( "UKRAINE" );

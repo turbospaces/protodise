@@ -127,7 +127,9 @@ public class Antlr4ProtoVisitor extends ProtoParserBaseVisitor<Void> {
         String name = ctx.enum_name().getText();
         logger.debug( "parsing enum = {}...", name );
         check( !KEYWORDS.contains( name.toLowerCase() ), "Enum uses reserved keyword" );
-        EnumDescriptor e = new EnumDescriptor( name );
+        ProtoContext pkgCtx = (ProtoContext) ctx.parent;
+        String pkg = pkgCtx.package_def().package_name().getText().trim();
+        EnumDescriptor e = new EnumDescriptor( name, pkg );
 
         check( !container.enums.containsKey( name ), "enum with name=% already defined", name );
         check( !container.messages.containsKey( name ), "message with name=% already defined", name );

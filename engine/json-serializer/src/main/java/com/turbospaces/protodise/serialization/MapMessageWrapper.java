@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collection;
 
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
+import com.turbospaces.protodise.Misc;
 import com.turbospaces.protodise.gen.GeneratedMessage;
 import com.turbospaces.protodise.types.MapMessageType;
 import com.turbospaces.protodise.types.ObjectMessageType;
@@ -49,5 +50,10 @@ final class MapMessageWrapper implements GeneratedMessage {
     @Override
     public Collection<FieldDescriptor> getAllDescriptors() {
         return fieldDescriptors;
+    }
+
+    @Override
+    public int getClassId() {
+        return Misc.hash32( getClass().getName() );
     }
 }

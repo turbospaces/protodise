@@ -11,6 +11,7 @@ public interface GeneratedMessage extends Cloneable {
     void setFieldValue(int tag, Object value);
     FieldDescriptor getFieldDescriptor(int tag);
     Collection<FieldDescriptor> getAllDescriptors();
+    int getClassId();
     //
     // hash()-equals()-toString()
     //

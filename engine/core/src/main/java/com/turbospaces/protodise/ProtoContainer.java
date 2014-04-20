@@ -28,6 +28,9 @@ public class ProtoContainer {
     public Collection<ConstantDescriptor> getConstants() {
         return constants.values();
     }
+    public Collection<EnumDescriptor> getEnums() {
+        return enums.values();
+    }
     @Override
     public String toString() {
         return String.format(

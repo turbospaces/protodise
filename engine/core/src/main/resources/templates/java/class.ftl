@@ -6,11 +6,13 @@ package ${pkg};
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import com.turbospaces.protodise.MessageDescriptor.*;
+import com.turbospaces.protodise.*;
 import com.turbospaces.protodise.gen.*;
 import com.turbospaces.protodise.types.*;
 
 <#assign fields = clazz.fieldDescriptors>
 public class ${clazz.name} extends <#if clazz.parent??>${clazz.parent}<#else><#if clazz.exception>AbstractGeneratedException<#else>AbstractGeneratedMessage</#if></#if> {
+    public static final int CLASS_ID = Misc.hash32(${clazz.name}.class.getName());
 
     <#list fields.entrySet() as entry>
     <#assign v = entry.value>
@@ -111,5 +113,9 @@ public class ${clazz.name} extends <#if clazz.parent??>${clazz.parent}<#else><#i
        }
        ALL_DESCRIPTORS.set(all);
        return all;
-    }   
+    }
+    @Override
+    public int getClassId() {
+       return CLASS_ID;
+    }
 }
