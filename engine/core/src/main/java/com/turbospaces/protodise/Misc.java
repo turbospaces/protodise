@@ -1,6 +1,7 @@
 package com.turbospaces.protodise;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 
 public class Misc {
     public static int hash32(String text) {
@@ -40,6 +41,16 @@ public class Misc {
         h ^= h >>> 15;
 
         return h;
+    }
+    public static boolean deepEquals(Object a, Object b) {
+        if ( a == b )
+            return true;
+        else if ( a == null || b == null )
+            return false;
+        else if ( a instanceof Object[] && b instanceof Object[] )
+            return Arrays.deepEquals( (Object[]) a, (Object[]) b );
+        else
+            return a.equals( b );
     }
 
     public static final class ExposedByteArrayOutputStream extends ByteArrayOutputStream {

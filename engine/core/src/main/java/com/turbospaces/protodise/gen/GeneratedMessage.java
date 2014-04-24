@@ -2,9 +2,9 @@ package com.turbospaces.protodise.gen;
 
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.Objects;
 
 import com.turbospaces.protodise.MessageDescriptor.FieldDescriptor;
+import com.turbospaces.protodise.Misc;
 
 public interface GeneratedMessage extends Cloneable {
     Object getFieldValue(int tag);
@@ -64,7 +64,7 @@ public interface GeneratedMessage extends Cloneable {
                 Object value = thiz.getFieldValue( f.getTag() );
                 Object otherValue = other.getFieldValue( f.getTag() );
 
-                equals = equals && Objects.deepEquals( value, otherValue );
+                equals = equals && Misc.deepEquals( value, otherValue );
                 if ( !equals ) {
                     break;
                 }

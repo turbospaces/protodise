@@ -1,11 +1,14 @@
 package com.turbospaces.protodise.gen;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URL;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -20,6 +23,11 @@ import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,17 +45,34 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 
 public class Generator {
-    private static Logger logger = LoggerFactory.getLogger( Generator.class );
+    private static Logger LOGGER = LoggerFactory.getLogger( Generator.class );
+
     private final File outDir;
     private final String[] paths;
     private Template enumTemplate, classTemplate, protoTemplate, serviceTemplate;
     private final GenLanguage lang;
     private final String version = "0.1-SNAPSHOT";
 
-    public Generator(String lang, File outDir, String... paths) throws IOException {
-        this.lang = GenLanguage.valueOf( lang.toUpperCase() );
-        this.outDir = outDir;
-        this.paths = paths;
+    public Generator(String... args) throws Exception {
+        LOGGER.info( "generating with options={}", Arrays.toString( args ) );
+        HelpFormatter formatter = new HelpFormatter();
+        CommandLineParser parser = new GnuParser();
+        Options options = new Options();
+
+        options.addOption( "l", "lang", true, "generation languaga(java, cs, flash, etc)" );
+        options.addOption( "o", "output", true, "output directory" );
+        options.addOption( "f", "files", true, "list of files" );
+
+        try {
+            CommandLine cmd = parser.parse( options, args );
+            this.lang = GenLanguage.valueOf( cmd.getOptionValue( "l" ).toString().trim().toUpperCase() );
+            this.outDir = new File( cmd.getOptionValue( "o" ).toString().trim() );
+            this.paths = cmd.getOptionValues( "f" );
+        }
+        catch ( Exception e ) {
+            formatter.printHelp( "protocol gen options", options );
+            throw e;
+        }
 
         Configuration cfg = new Configuration();
         cfg.setObjectWrapper( new BeansWrapper() );
@@ -60,15 +85,13 @@ public class Generator {
             serviceTemplate = cfg.getTemplate( lang + "/service.ftl" );
         }
         catch ( IOException e ) {
-            logger.error( e.getMessage(), e );
+            LOGGER.error( e.getMessage(), e );
             throw e;
         }
     }
-
     public void run() throws Exception {
-        Charset charset = Charset.forName( "UTF-8" );
         outDir.mkdirs();
-        logger.info( "generating code into folder = {}", outDir );
+        LOGGER.info( "generating code into folder = {}", outDir );
 
         assert ( outDir.isDirectory() );
         ProtoGenerationContext ctx = new ProtoGenerationContext();
@@ -79,8 +102,8 @@ public class Generator {
             String path = paths[i];
             File f = resource( path );
 
-            String text = new String( Files.readAllBytes( f.toPath() ), charset );
-            logger.info( "parsing protoc file = {}", path );
+            String text = readFile( f );
+            LOGGER.info( "parsing protoc file = {}", path );
             ProtoContainer container = parse( text );
 
             String n = f.getName().substring( 0, f.getName().indexOf( ".protoc" ) );
@@ -102,8 +125,8 @@ public class Generator {
         }
 
         for ( String path : allImports ) {
-            String text = new String( Files.readAllBytes( resource( path ).toPath() ), charset );
-            logger.info( "parsing imported protoc file = {}", path );
+            String text = readFile( resource( path ) );
+            LOGGER.info( "parsing imported protoc file = {}", path );
             ctx.imports.add( parse( text ) );
         }
 
@@ -128,8 +151,7 @@ public class Generator {
 
                 String filename = root.getName() + '.' + lang.name().toLowerCase();
                 File f = new File( pkg, filename );
-                f.getParentFile().mkdirs();
-                Files.write( f.toPath(), out.toString().getBytes( charset ) );
+                writeFile( f, out.toString() );
             }
 
             for ( EnumDescriptor d : enums ) {
@@ -142,7 +164,7 @@ public class Generator {
                 String filename = d.getName() + '.' + lang.name().toLowerCase();
                 File f = new File( pkg, filename );
                 f.getParentFile().mkdirs();
-                Files.write( f.toPath(), out.toString().getBytes( charset ) );
+                writeFile( f, out.toString() );
             }
 
             for ( MessageDescriptor d : messages ) {
@@ -155,7 +177,7 @@ public class Generator {
                 String filename = d.getName() + '.' + lang.name().toLowerCase();
                 File f = new File( pkg, filename );
                 f.getParentFile().mkdirs();
-                Files.write( f.toPath(), out.toString().getBytes( charset ) );
+                writeFile( f, out.toString() );
             }
 
             for ( ServiceDescriptor s : services ) {
@@ -168,7 +190,7 @@ public class Generator {
                 String filename = s.getName() + '.' + lang.name().toLowerCase();
                 File f = new File( pkg, filename );
                 f.getParentFile().mkdirs();
-                Files.write( f.toPath(), out.toString().getBytes( charset ) );
+                writeFile( f, out.toString() );
             }
         }
     }
@@ -177,16 +199,16 @@ public class Generator {
         ProtoParserLexer lexer = new ProtoParserLexer( input );
         CommonTokenStream tokens = new CommonTokenStream( lexer );
         ProtoParserParser parser = new ProtoParserParser( tokens );
-        parser.setTrace( logger.isDebugEnabled() );
+        parser.setTrace( LOGGER.isDebugEnabled() );
         parser.removeErrorListeners();
         parser.addErrorListener( new BaseErrorListener() {
             @Override
             public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String msg,
-                    RecognitionException e) {
+                                    RecognitionException e) {
                 List<String> stack = ( (ProtoParserParser) recognizer ).getRuleInvocationStack();
                 Collections.reverse( stack );
-                logger.error( "rule stack: {}", stack );
-                logger.error( "line {}:{} at {}: error={}", line, charPositionInLine, offendingSymbol, msg );
+                LOGGER.error( "rule stack: {}", stack );
+                LOGGER.error( "line {}:{} at {}: error={}", line, charPositionInLine, offendingSymbol, msg );
             }
         } );
         ProtoContext protoContext = parser.proto();
@@ -195,20 +217,51 @@ public class Generator {
         visitor.visit( protoContext );
         return container;
     }
-    public static File resource(String path) {
+    public static File resource(String path) throws FileNotFoundException {
         File f = new File( path );
         if ( f.exists() ) {
             return f;
         }
         else {
             URL resource = Thread.currentThread().getContextClassLoader().getResource( path );
-            return new File( resource.getFile() );
+            f = new File( resource.getFile() );
+            if ( !f.exists() ) {
+                throw new FileNotFoundException( path );
+            }
+            return f;
         }
     }
 
+    public static String readFile(File f) throws IOException {
+        FileInputStream fstream = new FileInputStream( f );
+        InputStreamReader in = new InputStreamReader( fstream );
+        BufferedReader br = new BufferedReader( in );
+
+        StringBuffer text = new StringBuffer();
+        try {
+            for ( String line; ( line = br.readLine() ) != null; ) {
+                text.append( line );
+            }
+        }
+        finally {
+            if ( fstream != null ) {
+                fstream.close();
+            }
+            if ( in != null ) {
+                in.close();
+            }
+        }
+        return text.toString();
+    }
+    public static void writeFile(File f, String text) throws FileNotFoundException {
+        f.getParentFile().mkdirs();
+        PrintWriter pw = new PrintWriter( f );
+        pw.println( text );
+        pw.flush();
+        pw.close();
+    }
     public static void main(String... args) throws Exception {
-        File f = new File( args[0] );
-        Generator g = new Generator( "java", f, Arrays.copyOfRange( args, 1, args.length ) );
+        Generator g = new Generator( args );
         g.run();
     }
 }

@@ -1,7 +1,5 @@
 package com.turbospaces.protodise.serialization;
 
-import static java.util.Objects.requireNonNull;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,8 +32,8 @@ public final class MessagePackStream implements Stream {
     private final MessageRegistry registry;
 
     public MessagePackStream(MessagePack msgpack, MessageRegistry registry) {
-        this.registry = requireNonNull( registry );
-        this.msgpack = requireNonNull( msgpack );
+        this.registry = registry;
+        this.msgpack = msgpack;
     }
 
     public MessagePackStream(MessageRegistry registry) {

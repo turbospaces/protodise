@@ -1,1 +1,15 @@
 package com.turbospaces.common;
+
+message AbstractCommand {
+    int64 sequenceNumber = 1;
+    int32 retryAttempt = 2;
+    string correlationId = 3;    
+}
+
+message PingRequest extends AbstractCommand {
+   string msg = 4;   
+}
+
+message PongResponse extends AbstractCommand {
+   string msg = 4;
+}
